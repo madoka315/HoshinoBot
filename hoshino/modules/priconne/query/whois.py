@@ -37,3 +37,33 @@ async def whois(bot, ev: CQEvent):
     else:
         msg = f'{await c.get_icon_cqcode()} {c.name}'
         await bot.send(ev, msg, at_sender=True)
+
+@sv.on_prefix(('查立绘'))
+async def whois_fullcard(bot, ev: CQEvent):
+    uid = ev.user_id
+    if not lmt.check(uid):
+        await bot.send(ev, f'立绘冷却中请稍后再查询，(剩余 {int(lmt.left_time(uid)) + 1}秒)', at_sender=True)
+        return
+    lmt.start_cd(uid)
+
+    name = ev.message.extract_plain_text().strip()
+    if not name:
+        await bot.send(ev, '请发送"查立绘+名字"')
+        return
+    id_ = chara.name2id(name)
+    confi = 100
+    if id_ == chara.UNKNOWN:
+        id_, guess_name, confi = chara.guess_id(name)
+    c = chara.fromid(id_)
+
+    msg = ''
+    if confi < 100:
+        lmt.start_cd(uid)
+        name = filt_message(name)
+        msg = f'兰德索尔似乎没有叫"{name}"的人'
+        await bot.send(ev, msg)
+        msg = f'\n您有{confi}%的可能在找{guess_name} '
+
+    if confi > 60:
+        msg += f'{c.name}\n{await c.get_fullcard_cqcode()}'
+        await bot.send(ev, msg, at_sender=True)

@@ -128,6 +128,26 @@ async def download_chara_icon(id_, star):
         return 1        # error
 
 
+async def download_chara_fullcard(id_, star):
+    url = f'https://redive.estertion.win/card/full/{id_}{star}1.webp'
+    save_path = R.img(f'priconne/fullcard/{id_}{star}1.png').path
+    logger.info(f'Downloading chara fullcard from {url}')
+    try:
+        rsp = await aiorequests.get(url, stream=True, timeout=5)
+        if 200 == rsp.status_code:
+            img = Image.open(BytesIO(await rsp.content))
+            img.save(save_path)
+            logger.info(f'Saved to {save_path}')
+            return 0    # ok
+        else:
+            logger.error(f'Failed to download fullcard {url}. HTTP {rsp.status_code}')
+            return 1        # error
+    except Exception as e:
+        logger.error(f'Failed to download fullcard {url}. {type(e)}')
+        logger.exception(e)
+        return 1        # error
+
+
 class Chara:
 
     def __init__(self, id_, star=0, equip=0):
@@ -199,6 +219,31 @@ class Chara:
 
     async def get_icon_cqcode(self, star=0):
         return (await self.get_icon(star)).cqcode
+
+    async def get_fullcard(self, star=0) -> R.ResImg:
+        star = star or self.star
+        star = 1 if 1 <= star < 3 else 3 if 3 <= star < 6 else 6
+        res = R.img(f'priconne/fullcard/{self.id}{star}1.png')
+        if not res.exist:
+            res = R.img(f'priconne/fullcard/{self.id}31.png')
+        if not res.exist:
+            res = R.img(f'priconne/fullcard/{self.id}61.png')
+        if not res.exist:
+            await asyncio.gather(
+                download_chara_fullcard(self.id, 6),
+                download_chara_fullcard(self.id, 3),
+            )
+            res = R.img(f'priconne/fullcard/{self.id}{star}1.png')
+        if not res.exist:
+            res = R.img(f'priconne/fullcard/{self.id}31.png')
+        if not res.exist:
+            res = R.img(f'priconne/fullcard/{self.id}61.png')
+        if not res.exist:
+            res = R.img(f'priconne/unit/icon_unit_{UNKNOWN}31.png')
+        return res
+
+    async def get_fullcard_cqcode(self, star=0):
+        return (await self.get_fullcard(star)).cqcode
 
     async def render_icon(self, size, star_slot_verbose=True) -> Image:
         icon = await self.get_icon()
